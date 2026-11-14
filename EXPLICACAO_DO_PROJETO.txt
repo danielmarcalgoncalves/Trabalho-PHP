@@ -1,0 +1,391 @@
+================================================================================
+EXPLICACAO DO PROJETO — BIBLIOTECA DIGITAL (LARAVEL + BLADE + MYSQL/MARIADB)
+================================================================================
+
+Este guia foi escrito em linguagem simples para ajudar você a entender cada
+parte do sistema e conseguir explicar tudo com segurança na apresentação para
+o professor.
+
+
+--------------------------------------------------------------------------------
+1. VISAO GERAL
+--------------------------------------------------------------------------------
+
+O que é a aplicação?
+  É um sistema web chamado "Biblioteca Digital" para gerenciar um acervo de
+  livros. Ele permite cadastrar novos livros, listar os livros salvos no
+  banco de dados e excluir livros existentes.
+
+Qual problema ela resolve?
+  Substitui anotações manuais por uma interface web organizada, onde os livros
+  ficam salvos de forma permanente em um banco de dados relacional (MySQL ou
+  MariaDB).
+
+Quais tecnologias foram utilizadas?
+  - PHP 8.2+: linguagem de programação que roda no servidor (backend).
+  - Laravel 12: framework PHP que organiza o código e facilita rotas, banco de
+    dados, segurança e telas.
+  - Blade: sistema de templates do Laravel para montar páginas HTML com dados
+    vindos do PHP.
+  - MySQL / MariaDB: banco de dados relacional onde os livros são guardados.
+  - HTML5 e CSS3: estrutura e aparência das páginas (sem frameworks extras e
+    sem Node.js).
+
+Como funciona o sistema de maneira geral?
+  O usuário acessa o navegador, faz ações (abrir a lista, preencher o
+  formulário de cadastro ou clicar em Excluir). O Laravel recebe cada pedido
+  pelas rotas (routes/web.php), chama o Controller (LivroController.php),
+  conversa com o banco de dados usando o Model (Livro.php) e devolve a página
+  HTML pronta usando as views Blade (resources/views/).
+
+
+--------------------------------------------------------------------------------
+2. ESTRUTURA DE PASTAS PRINCIPAIS
+--------------------------------------------------------------------------------
+
+Abaixo estão as pastas mais importantes para entender o funcionamento do
+sistema:
+
+- app/
+  Contém o código PHP principal da aplicação.
+  - app/Http/Controllers/ -> Ficam os Controllers (ex.: LivroController.php).
+  - app/Models/           -> Ficam os Models (ex.: Livro.php).
+
+- database/
+  Contém os arquivos relacionados ao banco de dados.
+  - database/migrations/  -> Arquivos que criam e alteram tabelas no banco.
+
+- public/
+  Pasta pública acessível diretamente pelo navegador.
+  - public/index.php      -> Porta de entrada de todas as requisições Laravel.
+  - public/css/app.css    -> Arquivo de estilos CSS do sistema.
+
+- resources/
+  Contém os arquivos de interface (telas).
+  - resources/views/      -> Telas em Blade (.blade.php).
+    - layouts/app.blade.php   -> Estrutura HTML base compartilhada.
+    - livros/index.blade.php  -> Tela de listagem de livros.
+    - livros/create.blade.php -> Tela de cadastro de livro.
+
+- routes/
+  Define os endereços (URLs) da aplicação.
+  - routes/web.php        -> Rotas acessadas pelo navegador.
+
+- .env e .env.example
+  Guardam configurações locais do ambiente (como nome e senha do banco).
+
+- composer.json e composer.lock
+  Listam as bibliotecas PHP (como o próprio Laravel) usadas pelo projeto.
+
+
+--------------------------------------------------------------------------------
+3. EXPLICACAO DE CADA ARQUIVO IMPORTANTE
+--------------------------------------------------------------------------------
+
+1) routes/web.php
+   - Função: É o "mapa de endereços" da aplicação web.
+   - O que contém: Define as URLs e qual método HTTP cada uma aceita:
+     * Route::redirect('/', '/livros');
+       Redireciona quem acessa a raiz "/" para "/livros".
+     * Route::get('/livros', [LivroController::class, 'index'])->name('livros.index');
+       Chama o método index() do LivroController para listar os livros.
+     * Route::view('/livros/create', 'livros.create')->name('livros.create');
+       Abre diretamente a tela do formulário de cadastro.
+     * Route::post('/livros', [LivroController::class, 'store'])->name('livros.store');
+       Chama o método store() do LivroController para salvar um novo livro.
+     * Route::delete('/livros/{livro}', [LivroController::class, 'destroy'])->name('livros.destroy');
+       Chama o método destroy() do LivroController para excluir um livro.
+   - Por que existe: Sem ele, o Laravel não saberia qual código executar quando
+     o usuário acessa uma URL.
+   - Com quem se comunica: Com LivroController.php e com a view livros/create.
+
+2) app/Http/Controllers/LivroController.php
+   - Função: É o "cérebro" intermediário entre as rotas, o banco e as telas.
+   - O que contém: Apenas os 3 métodos necessários:
+     * index(): busca os livros no banco com Livro::orderByDesc(...)->get() e
+       envia a variável $livros para a view livros.index.
+     * store(Request $request): valida nome, autor, categoria e ano_publicacao,
+       salva no banco com Livro::create($dadosValidados) e redireciona para
+       livros.index com mensagem de sucesso.
+     * destroy(Livro $livro): recebe o livro encontrado automaticamente pelo ID
+       na URL, executa $livro->delete() e redireciona com mensagem de sucesso.
+   - Por que existe: Organiza a lógica da aplicação fora das rotas e das telas.
+   - Com quem se comunica: Recebe chamadas de routes/web.php, usa o Model
+     Livro.php para acessar o banco e devolve respostas para as views Blade.
+
+3) app/Models/Livro.php
+   - Função: Representa a tabela "livros" do banco de dados dentro do PHP.
+   - O que contém:
+     * protected $table = 'livros'; -> Liga o Model à tabela "livros".
+     * protected $fillable = ['nome', 'autor', 'categoria', 'ano_publicacao'];
+       -> Autoriza quais colunas podem ser gravadas de uma vez com create().
+     * protected $casts = ['ano_publicacao' => 'integer']; -> Garante que o
+       ano seja tratado como número inteiro no PHP.
+   - Por que existe: Permite ler, salvar e excluir registros sem escrever SQL
+     manualmente.
+   - Com quem se comunica: Com o banco de dados (via Eloquent ORM) e é usado
+     pelo LivroController.php e pelas views (quando recebem objetos Livro).
+
+4) database/migrations/2026_11_14_124743_create_livros_table.php
+   - Função: Cria a estrutura da tabela "livros" no banco de dados.
+   - O que contém:
+     * Método up(): cria a tabela "livros" com as colunas:
+       id (BIGINT chave primária), nome (VARCHAR 255), autor (VARCHAR 255),
+       categoria (VARCHAR 100), ano_publicacao (INTEGER), created_at e
+       updated_at (TIMESTAMP).
+     * Método down(): apaga a tabela "livros" se a migration for revertida.
+   - Por que existe: Permite recriar o banco de dados exatamente igual em
+     qualquer computador (Windows ou Linux) rodando "php artisan migrate".
+   - Com quem se comunica: Com o banco de dados configurado no .env.
+
+5) resources/views/layouts/app.blade.php
+   - Função: É o molde HTML principal compartilhado por todas as páginas.
+   - O que contém: Estrutura <html>, <head> (com link para public/css/app.css),
+     cabeçalho "Biblioteca Digital", exibição das mensagens de sucesso/erro da
+     sessão (@if (session('success'))), @yield('content') e rodapé.
+   - Por que existe: Evita repetir o mesmo HTML de cabeçalho e rodapé em
+     todas as páginas.
+   - Com quem se comunica: É estendido por index.blade.php e create.blade.php.
+
+6) resources/views/livros/index.blade.php
+   - Função: Tela principal que exibe a lista de livros cadastrados.
+   - O que contém: @extends('layouts.app'), @section('content'), tabela HTML
+     com @foreach ($livros as $livro) mostrando nome, autor, categoria e
+     ano_publicacao, além do botão "Excluir" dentro de um formulário com
+     @csrf e @method('DELETE').
+   - Por que existe: Mostrar os dados reais do banco para o usuário.
+   - Com quem se comunica: Recebe $livros do LivroController@index, usa as
+     rotas livros.create e livros.destroy.
+
+7) resources/views/livros/create.blade.php
+   - Função: Tela com o formulário para cadastrar um novo livro.
+   - O que contém: Formulário HTML com action="{{ route('livros.store') }}" e
+     method="POST", diretiva @csrf, campos nome, autor, categoria e
+     ano_publicacao, além de @error(...) para mostrar erros de validação e
+     old(...) para não apagar o que o usuário já digitou.
+   - Por que existe: Permitir que o usuário envie novos livros ao sistema.
+   - Com quem se comunica: Envia os dados para a rota POST /livros, que chama
+     LivroController@store.
+
+8) .env
+   - Função: Arquivo de configuração local do ambiente (não deve ser enviado no
+     ZIP entre máquinas diferentes).
+   - O que contém: APP_KEY, DB_CONNECTION=mysql, DB_HOST=127.0.0.1,
+     DB_PORT=3306, DB_DATABASE=biblioteca_digital, DB_USERNAME e DB_PASSWORD.
+   - Por que existe: Permite que cada computador (Windows em casa, Linux na
+     escola) tenha suas próprias credenciais de banco sem alterar o código PHP.
+   - Com quem se comunica: É lido automaticamente pelo Laravel e por config/.
+
+9) composer.json
+   - Função: Documento de dependências do projeto PHP.
+   - O que contém: Nome do projeto, versão mínima do PHP (^8.2) e pacotes
+     necessários (como laravel/framework).
+   - Por que existe: Permite instalar todas as bibliotecas no Linux (ou em
+     outro Windows) com um único comando: "composer install".
+   - Com quem se comunica: Com o programa Composer e o arquivo composer.lock.
+
+
+--------------------------------------------------------------------------------
+4. COMO OS ARQUIVOS SE RELACIONAM (FLUXOS COMPLETOS)
+--------------------------------------------------------------------------------
+
+FLUXO 1 — LISTAGEM DE LIVROS (GET /livros)
+  1. O usuário abre http://127.0.0.1:8000 no navegador.
+  2. A rota "/" em routes/web.php redireciona para "/livros".
+  3. A rota Route::get('/livros', [LivroController::class, 'index']) é acionada.
+  4. O método index() do LivroController executa:
+     $livros = Livro::orderByDesc('created_at')->orderByDesc('id')->get();
+  5. O Model Livro consulta a tabela "livros" no MySQL/MariaDB via Eloquent.
+  6. O Controller retorna view('livros.index', compact('livros')).
+  7. O Blade combina layouts/app.blade.php com livros/index.blade.php,
+     percorre $livros com @foreach e entrega o HTML pronto ao navegador.
+
+FLUXO 2 — CADASTRO DE LIVROS (GET /livros/create + POST /livros)
+  1. Na listagem, o usuário clica em "Cadastrar Novo Livro".
+  2. A rota Route::view('/livros/create', 'livros.create') exibe o formulário
+     de resources/views/livros/create.blade.php.
+  3. O usuário preenche Nome, Autor, Categoria e Ano de Publicação e clica em
+     "Salvar Livro".
+  4. O formulário HTML envia os dados via POST para route('livros.store'),
+     junto com o token @csrf.
+  5. A rota Route::post('/livros', [LivroController::class, 'store']) em
+     routes/web.php recebe a requisição e chama store() no LivroController.
+  6. O método store() executa $request->validate([...]):
+     - Se algum campo estiver inválido, o Laravel volta para o formulário
+       mostrando as mensagens com @error(...) e mantendo os valores com old().
+     - Se estiver tudo válido, continua para o próximo passo.
+  7. O Controller executa Livro::create($dadosValidados).
+  8. O Model Livro grava o novo registro na tabela "livros" do banco de dados.
+  9. O Controller redireciona para route('livros.index') com
+     ->with('success', 'Livro cadastrado com sucesso!').
+  10. A página de listagem carrega novamente do banco e mostra o novo livro e
+      a mensagem verde de sucesso.
+
+FLUXO 3 — EXCLUSAO DE LIVROS (DELETE /livros/{livro})
+  1. Na tabela de listagem (index.blade.php), cada livro tem um botão
+     "Excluir" dentro de um formulário apontando para
+     route('livros.destroy', $livro).
+  2. Ao clicar em "Excluir", o navegador exibe a confirmação JavaScript
+     confirm('Tem certeza que deseja excluir o livro ...?').
+  3. Se o usuário confirmar, o formulário envia uma requisição POST com
+     @csrf e @method('DELETE').
+  4. O Laravel lê o campo oculto gerado por @method('DELETE') e trata a
+     requisição como método HTTP DELETE.
+  5. A rota Route::delete('/livros/{livro}', [LivroController::class, 'destroy'])
+     recebe o ID do livro na URL e busca automaticamente esse registro no
+     banco (Route Model Binding), entregando o objeto $livro pronto ao método
+     destroy(Livro $livro).
+  6. O Controller executa $livro->delete(), removendo apenas aquele livro do
+     banco de dados.
+  7. O Controller redireciona para route('livros.index') com a mensagem de
+     confirmação.
+  8. A listagem é recarregada do banco sem o livro excluído.
+
+
+--------------------------------------------------------------------------------
+5. EXPLICACAO DOS PRINCIPAIS CONCEITOS
+--------------------------------------------------------------------------------
+
+- Laravel:
+  Framework PHP que já traz estrutura pronta para rotas, banco de dados,
+  segurança e páginas HTML, evitando escrever tudo do zero.
+
+- PHP:
+  Linguagem de programação executada no servidor que processa formulários,
+  conversa com o banco de dados e gera as respostas para o navegador.
+
+- Blade:
+  Motor de templates do Laravel. Permite misturar HTML com diretivas simples
+  como @foreach, @if, @extends e {{ $variavel }} para exibir dados dinâmicos.
+
+- Controller:
+  Classe PHP responsável por receber os pedidos das rotas, validar dados,
+  chamar o Model e decidir qual tela ou redirecionamento retornar.
+
+- Model:
+  Classe PHP que representa uma tabela do banco de dados (no projeto, o Model
+  Livro representa a tabela "livros").
+
+- Migration:
+  Arquivo PHP que descreve a estrutura de uma tabela do banco (colunas e
+  tipos), permitindo criar o banco automaticamente com "php artisan migrate".
+
+- Rota:
+  Regra em routes/web.php que liga uma URL e um método HTTP (GET, POST,
+  DELETE) a uma ação do sistema.
+
+- GET:
+  Método HTTP usado para buscar e visualizar páginas ou dados (ex.: abrir a
+  listagem /livros ou o formulário /livros/create).
+
+- POST:
+  Método HTTP usado para enviar dados de um formulário para serem criados ou
+  processados no servidor (ex.: salvar um livro em /livros).
+
+- DELETE:
+  Método HTTP usado para remover um recurso específico (ex.: excluir um livro
+  em /livros/{livro}).
+
+- Eloquent ORM:
+  Ferramenta do Laravel que transforma tabelas do banco em classes PHP. Em vez
+  de escrever "INSERT INTO livros...", escrevemos apenas Livro::create(...).
+
+- CSRF (Cross-Site Request Forgery):
+  Proteção de segurança contra formulários falsos enviados por sites
+  externos. A diretiva @csrf cria um token único que o Laravel confere antes
+  de aceitar requisições POST ou DELETE.
+
+- .env:
+  Arquivo de variáveis de ambiente que guarda configurações sensíveis ou que
+  mudam de um computador para outro, como host, nome e senha do banco.
+
+
+--------------------------------------------------------------------------------
+6. PERGUNTAS QUE O PROFESSOR PODE FAZER (E COMO RESPONDER)
+--------------------------------------------------------------------------------
+
+1. Qual é a função do Controller?
+   Resposta: O Controller (LivroController.php) recebe as requisições vindas
+   das rotas, valida os dados enviados pelo usuário, chama o Model Livro para
+   consultar, salvar ou excluir no banco e retorna a view Blade ou um
+   redirecionamento.
+
+2. Qual é a diferença entre Model e Controller?
+   Resposta: O Model (Livro.php) representa a tabela "livros" e cuida da
+   comunicação com o banco de dados. O Controller (LivroController.php)
+   controla o fluxo da aplicação: recebe o pedido, valida os campos e decide
+   o que fazer usando o Model.
+
+3. Como o formulário consegue salvar os dados no banco?
+   Resposta: O formulário em create.blade.php envia os dados via POST para a
+   rota /livros. Essa rota chama LivroController@store, que valida os dados e
+   chama Livro::create($dadosValidados). O Model Livro usa o Eloquent ORM para
+   executar o INSERT na tabela "livros" do MySQL/MariaDB.
+
+4. Onde estão declaradas as rotas?
+   Resposta: Todas as rotas web do sistema estão declaradas no arquivo
+   routes/web.php.
+
+5. Por que utilizamos @csrf nos formulários?
+   Resposta: Para proteger a aplicação contra ataques CSRF (falsificação de
+   requisição entre sites). O Laravel exige esse token em todos os formulários
+   POST e DELETE; sem ele, o servidor bloqueia o envio com erro 419.
+
+6. Como funciona o método DELETE se o HTML só aceita GET e POST?
+   Resposta: O formulário HTML de exclusão em index.blade.php usa method="POST",
+   mas dentro dele colocamos @method('DELETE'). Isso cria um campo oculto
+   (_method=DELETE) que o Laravel reconhece e direciona para Route::delete().
+
+7. Onde está definida a estrutura da tabela livros?
+   Resposta: Na migration database/migrations/2026_11_14_124743_create_livros_table.php,
+   dentro do método up(), com as colunas id, nome, autor, categoria,
+   ano_publicacao, created_at e updated_at.
+
+8. Como o Laravel sabe qual banco de dados utilizar?
+   Resposta: Pelas variáveis definidas no arquivo .env (como DB_CONNECTION,
+   DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME e DB_PASSWORD), que são lidas
+   pelas configurações em config/database.php.
+
+9. Qual é a função do Eloquent ORM?
+   Resposta: Ele permite manipular o banco de dados usando código PHP orientado
+   a objetos (como Livro::create() e $livro->delete()), sem precisar escrever
+   comandos SQL manualmente no Controller.
+
+10. Como os dados aparecem na tela de listagem?
+    Resposta: O método index() do LivroController busca os registros com
+    Livro::orderByDesc(...)->get() e passa a variável $livros para a view
+    index.blade.php, que percorre cada livro com @foreach ($livros as $livro).
+
+11. Como o Laravel sabe qual livro excluir quando clicamos em Excluir?
+    Resposta: Na URL da rota DELETE /livros/{livro}, enviamos o objeto $livro
+    (que gera o ID na URL, como /livros/1). O Laravel usa o recurso chamado
+    Route Model Binding: ele busca automaticamente o registro com aquele ID
+    no banco e entrega o objeto $livro pronto para destroy(Livro $livro).
+
+12. O que acontece se o usuário tentar cadastrar um livro com campos vazios ou
+    ano inválido?
+    Resposta: O método $request->validate() no LivroController@store bloqueia o
+    salvamento, redireciona de volta para o formulário e envia os erros para o
+    Blade, que exibe as mensagens com @error(...) e mantém os valores
+    digitados usando old(...).
+
+13. Por que usamos layouts/app.blade.php com @extends, @section e @yield?
+    Resposta: Para não repetir o mesmo código HTML de cabeçalho, CSS e rodapé
+    em todas as páginas. O app.blade.php define o molde com @yield('content'),
+    e as outras views usam @extends('layouts.app') e @section('content') para
+    preencher apenas o conteúdo específico de cada tela.
+
+14. O que é o Composer e para que serve o composer.json?
+    Resposta: Composer é o gerenciador de dependências do PHP. O arquivo
+    composer.json lista os pacotes necessários (como o Laravel), permitindo
+    reinstalar tudo em outro computador (como na VM Linux) com "composer install".
+
+15. Por que não devemos copiar a pasta vendor/ nem o arquivo .env para o Linux?
+    Resposta: Porque a pasta vendor/ é grande e pode ser recriada no Linux com
+    "composer install", e o arquivo .env guarda configurações específicas de
+    cada máquina (como usuário e senha do banco local).
+
+16. O que o método $fillable no Model Livro faz?
+    Resposta: Ele define uma lista de segurança com os campos que podem ser
+    preenchidos em massa pelo método Livro::create() (nome, autor, categoria e
+    ano_publicacao), evitando que campos não autorizados sejam alterados.

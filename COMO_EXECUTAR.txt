@@ -1,0 +1,163 @@
+================================================================================
+COMO EXECUTAR O PROJETO — LINUX (ORACLE VM VIRTUALBOX)
+================================================================================
+
+Este guia explica passo a passo como transferir, instalar e executar o sistema
+"Biblioteca Digital" na máquina virtual Linux (Ubuntu/Debian) da escola.
+
+
+1. PRE-REQUISITOS
+--------------------------------------------------------------------------------
+A máquina virtual Linux precisa ter acesso à internet (para instalar pacotes
+se necessário) e os seguintes programas:
+  - PHP 8.2 ou superior (com extensões: php-mysql, php-mbstring, php-xml,
+    php-curl, php-zip)
+  - Composer
+  - MariaDB ou MySQL
+  - unzip (para extrair o arquivo ZIP)
+  - Navegador web
+
+
+2. COMO ABRIR O TERMINAL
+--------------------------------------------------------------------------------
+No ambiente gráfico do Linux (Ubuntu/Debian):
+  - Pressione as teclas Ctrl + Alt + T
+  - Ou abra o menu de aplicativos e clique em "Terminal".
+
+
+3. COMO ENTRAR NA PASTA DO PROJETO
+--------------------------------------------------------------------------------
+Depois de transferir o arquivo ZIP do projeto para a VM (sem as pastas
+vendor/ e sem o arquivo .env), extraia o ZIP e entre na pasta:
+
+  sudo apt update
+  sudo apt install -y unzip
+  unzip biblioteca-digital.zip -d ~/biblioteca-digital
+  cd ~/biblioteca-digital
+
+(Ajuste o nome do arquivo .zip caso tenha salvo com outro nome.)
+
+
+4. COMO VERIFICAR PHP E COMPOSER (E INSTALAR SE NECESSARIO)
+--------------------------------------------------------------------------------
+Verifique se o PHP, o Composer e o MariaDB já estão instalados:
+
+  php -v
+  composer --version
+  mariadb --version
+
+Se algum comando não for encontrado, ou para garantir todas as extensões
+necessárias do PHP, instale tudo com:
+
+  sudo apt update
+  sudo apt install -y php php-cli php-mbstring php-xml php-curl php-zip php-mysql composer mariadb-server
+
+Confira se a extensão pdo_mysql está ativa no PHP:
+
+  php -m | grep pdo_mysql
+
+
+5. COMO CONFIGURAR O BANCO MARIADB / MYSQL
+--------------------------------------------------------------------------------
+Inicie o serviço do MariaDB:
+
+  sudo systemctl start mariadb
+  sudo systemctl enable mariadb
+
+Acesse o MariaDB como administrador:
+
+  sudo mariadb
+
+Dentro do prompt do MariaDB, execute os comandos SQL abaixo para criar o banco
+de dados e o usuário da aplicação:
+
+  CREATE DATABASE IF NOT EXISTS biblioteca_digital CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+  CREATE USER IF NOT EXISTS 'biblioteca'@'localhost' IDENTIFIED BY 'senha123';
+  GRANT ALL PRIVILEGES ON biblioteca_digital.* TO 'biblioteca'@'localhost';
+  FLUSH PRIVILEGES;
+  EXIT;
+
+
+6. COMO CONFIGURAR O ARQUIVO .env
+--------------------------------------------------------------------------------
+Crie o arquivo .env a partir do modelo .env.example:
+
+  cp .env.example .env
+
+Abra o arquivo .env para edição:
+
+  nano .env
+
+Deixe as linhas de banco de dados configuradas com o banco e usuário criados
+no passo anterior:
+
+  DB_CONNECTION=mysql
+  DB_HOST=127.0.0.1
+  DB_PORT=3306
+  DB_DATABASE=biblioteca_digital
+  DB_USERNAME=biblioteca
+  DB_PASSWORD=senha123
+
+Para salvar no nano: pressione Ctrl + O, depois Enter, e depois Ctrl + X.
+
+
+7. COMO INSTALAR AS DEPENDENCIAS
+--------------------------------------------------------------------------------
+Na pasta do projeto (~/biblioteca-digital), execute o Composer:
+
+  composer install
+
+Em seguida, gere a chave de segurança da aplicação (APP_KEY no .env):
+
+  php artisan key:generate
+
+Garanta permissão de escrita nas pastas de cache e sessão do Laravel:
+
+  chmod -R 775 storage bootstrap/cache
+
+
+8. COMO EXECUTAR AS MIGRATIONS
+--------------------------------------------------------------------------------
+Execute o comando abaixo para criar a tabela "livros" no MariaDB:
+
+  php artisan migrate
+
+Você pode conferir no banco se a tabela foi criada:
+
+  mariadb -u biblioteca -psenha123 -D biblioteca_digital -e "SHOW TABLES; DESCRIBE livros;"
+
+
+9. COMO INICIAR O SERVIDOR LARAVEL
+--------------------------------------------------------------------------------
+Na pasta do projeto, execute:
+
+  php artisan serve
+
+Mantenha essa janela do terminal aberta enquanto estiver apresentando ou
+testando o sistema. Para encerrar o servidor depois, pressione Ctrl + C.
+
+
+10. COMO ACESSAR A APLICACAO NO NAVEGADOR
+--------------------------------------------------------------------------------
+Abra o navegador web dentro da VM Linux e acesse:
+
+  http://127.0.0.1:8000
+
+A aplicação redirecionará automaticamente para http://127.0.0.1:8000/livros,
+onde você poderá listar, cadastrar e excluir livros.
+
+
+--------------------------------------------------------------------------------
+SOLUCAO RAPIDA DE ERROS COMUNS NA VM LINUX
+--------------------------------------------------------------------------------
+- "could not find driver" ao rodar php artisan migrate:
+  Instale a extensão MySQL do PHP:
+    sudo apt install -y php-mysql
+
+- "Permission denied" em storage/logs/laravel.log:
+  Ajuste as permissões:
+    chmod -R 775 storage bootstrap/cache
+
+- "Access denied for user" ao conectar no MariaDB:
+  Confirme se o usuário e senha no arquivo .env são exatamente os mesmos
+  criados no Passo 5 ('biblioteca' e 'senha123').
